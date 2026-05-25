@@ -3,10 +3,6 @@
 #include "Render.h" // Necessário para hMax e wMax
 
 
-// BUFFER DE TELA
-
-extern int screenBuffer[hMax][wMax];
-
 
 // DEFINIÇÃO DOS MAPAS
 

@@ -10,17 +10,11 @@
 #include "Bomba.h"
 #include "Menu.h"
 
+#include <signal.h>
 #include <iostream>
 #include <conio.h>
 #include <cstdlib>
 #include <ctime>
-
-// variaveis principais do jogo
-GameState state;
-int screenBuffer[hMax][wMax];
-
-
-// LOGICA DO JOGO
 
 
 // verifica se tem o target na posicao dejesada(poderia ser apenas a posicao dejesada mais pode ser util ter a posição atual de quem pediu o check)
@@ -32,16 +26,16 @@ bool checkColisao(int target, int posX, int posY, int offX, int offY) {
     if (destX < 0 || destX >= wMax || destY < 0 || destY >= hMax)
         return true;
 
-    return screenBuffer[destY][destX] == target;
+    return state->screenBuffer[destY][destX] == target;
 }
 
 
 // ve se jogador bateu em inimigo
 bool checkColisaoJogadorInimigo() {
-    for (const Enemy& e : state.enemies) {
+    for (const Enemy& e : state->enemies) {
         if (e.inimigoVivo &&
-            e.pos.x == state.p1.pos.x &&
-            e.pos.y == state.p1.pos.y) {
+            e.pos.x == state->p1.pos.x &&
+            e.pos.y == state->p1.pos.y) {
             return true;
         }
     }
@@ -66,18 +60,18 @@ void inputHandler() {
         case 'a': case 'A': dx = -1; break;
         case 'd': case 'D': dx =  1; break;
         case 'e': case 'E': colocarBomba(); break;
-        case 't': case 'T': state.session = false; break;
+        case 't': case 'T': state->session = false; break;
     }
 
     if (dx != 0 || dy != 0) {
 
-        bool parede1 = checkColisao(BLOCO_SOLIDO, state.p1.pos.x, state.p1.pos.y, dx, dy);
-        bool parede2 = checkColisao(PAREDE_DESTRUTIVEL, state.p1.pos.x, state.p1.pos.y, dx, dy);
+        bool parede1 = checkColisao(BLOCO_SOLIDO, state->p1.pos.x, state->p1.pos.y, dx, dy);
+        bool parede2 = checkColisao(PAREDE_DESTRUTIVEL, state->p1.pos.x, state->p1.pos.y, dx, dy);
 
         if (!parede1 && !parede2) {
-            state.p1.pos.x += dx;
-            state.p1.pos.y += dy;
-            state.hud.movimentos++;
+            state->p1.pos.x += dx;
+            state->p1.pos.y += dy;
+            state->hud.movimentos++;
         }
     }
 }
@@ -101,13 +95,13 @@ void spawnarItens()
             y = rand() % hMax;
 
         } while (
-            screenBuffer[y][x] != WHITE ||
-            (x == state.p1.pos.x && y == state.p1.pos.y)
+            state->screenBuffer[y][x] != WHITE ||
+            (x == state->p1.pos.x && y == state->p1.pos.y)
         );
 
         char simbolo = sortearTipoItem();
 
-        state.itens.push_back(Item(x, y, simbolo));
+        state->itens.push_back(Item(x, y, simbolo));
     }
 }
 
@@ -115,7 +109,7 @@ void renderizarItens()
 {
     HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    for (Item& item : state.itens)
+    for (Item& item : state->itens)
     {
         if (!item.ativo)
             continue;
@@ -134,47 +128,94 @@ void renderizarItens()
 
 void verificarColetaItem()
 {
-    for (Item& item : state.itens)
+    for (Item& item : state->itens)
     {
         if (!item.ativo)
             continue;
 
-        if (item.pos.x == state.p1.pos.x && item.pos.y == state.p1.pos.y)
+        if (item.pos.x == state->p1.pos.x && item.pos.y == state->p1.pos.y)
         {
             item.ativo = false;
 
             if (item.simbolo == 'F')
-                state.hud.itemFogo++;
+                state->hud.itemFogo++;
 
             else if (item.simbolo == 'B')
-                state.hud.itemBombas++;
+                state->hud.itemBombas++;
 
             else if (item.simbolo == 'V')
-                state.hud.itemVidaExtra++;
+                state->hud.itemVidaExtra++;
 
             else if (item.simbolo == 'R')
-                state.hud.itemBombaRelogio++;
+                state->hud.itemBombaRelogio++;
 
             else if (item.simbolo == 'E')
-                state.hud.itemEscudo++;
+                state->hud.itemEscudo++;
 
             else if (item.simbolo == 'P')
-                state.hud.itemPassaBlocos++;
+                state->hud.itemPassaBlocos++;
         }
     }
 }
 
-// loop principal
-void rodarJogo(int mapa[hMax][wMax]) {
+// menu
+int exibirMenu() {
 
-    state = GameState();
-    state.session = true;
-    state.hud.inicioJogo = time(nullptr);
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    limparTela();
+    SetConsoleTextAttribute(h, COLOR_BOMB);
+    std::cout << "======================\n";
+    std::cout << "\nBOMBERMAN\n";
+    std::cout << "\n======================\n\n";
+    SetConsoleTextAttribute(h, COLOR_DEFAULT);
+    std::cout << "WASD = mover\n";
+    std::cout << "E = bomba\n";
+    std::cout << "T = sair\n\n";
+
+    std::cout << "1 jogar\n";
+    std::cout << "0 sair\n\n";
+
+    int op;
+    std::cin >> op;
+
+    return op;
+}
+
+static const char* savePath = "saves/savegame.dk";
+void saveGame() 
+{
+    FILE* file = fopen(savePath, "wb");
+    if (file) {
+        fwrite(&state, sizeof(GameState), 1, file);
+    }
+    fclose(file);   
+}
+
+GameState loadGame() 
+{
+    GameState loadedState;
+    FILE* file = fopen(savePath, "rb");
+    if (file)
+        fread(&loadedState, sizeof(GameState), 1, file);
+    else
+        loadedState = GameState();
+    
+    fclose(file);
+}
+
+// loop principal
+void rodarJogo(int mapa[][wMax]) 
+{
+
+    state = new GameState();
+    state->session = true;
+    state->hud.inicioJogo = time(nullptr);
 
     // copia mapa
     for (int i = 0; i < hMax; i++)
         for (int j = 0; j < wMax; j++)
-            screenBuffer[i][j] = mapa[i][j];
+            state->screenBuffer[i][j] = mapa[i][j];
 
     criarInimigo(mapa, 3);
     criarInimigo(mapa);
@@ -184,40 +225,40 @@ void rodarJogo(int mapa[hMax][wMax]) {
 
     bool venceu = false;
 
-    while (state.session) {
+    while (state->session) {
 
         inputHandler();
         verificarColetaItem();
         updateBomba();
 
-        for (Enemy& e : state.enemies)
+        for (Enemy& e : state->enemies)
             updateInimigo(e);
 
         // morreu na explosao
-        if (screenBuffer[state.p1.pos.y][state.p1.pos.x] == BOMBA_EXPLOSAO)
-            state.p1.alive = false;
+        if (state->screenBuffer[state->p1.pos.y][state->p1.pos.x] == BOMBA_EXPLOSAO)
+            state->p1.alive = false;
 
         // morreu no inimigo
         if (checkColisaoJogadorInimigo())
-            state.p1.alive = false;
+            state->p1.alive = false;
 
         std::vector<std::pair<int,int>> vivos;
 
-        for (const Enemy& e : state.enemies) {
+        for (const Enemy& e : state->enemies) {
             if (e.inimigoVivo)
                 vivos.push_back({e.pos.x, e.pos.y});
         }
 
-        renderDraw(state.p1.pos.x, state.p1.pos.y, state.p1.alive, vivos, state.hud);
+        renderDraw();
         renderizarItens();
 
-        if (!state.p1.alive) {
+        if (!state->p1.alive) {
             venceu = false;
-            state.session = false;
+            state->session = false;
         }
         else if (todosInimigosMortos()) {
             venceu = true;
-            state.session = false;
+            state->session = false;
         }
 
         Sleep(16);
@@ -252,4 +293,27 @@ int main() {
         }
     }
     return 0;
+}   
+
+//controle de sinais de interrupt para poder salvar o jogo ao fechar
+BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
+{
+    switch (fdwCtrlType)
+    {
+        // Handle the CTRL-C signal.
+        case CTRL_C_EVENT:
+        case CTRL_CLOSE_EVENT:
+        case CTRL_BREAK_EVENT:
+        case CTRL_LOGOFF_EVENT:
+        case CTRL_SHUTDOWN_EVENT:
+        {    
+            Beep(750, 500);
+            saveGame();
+            limparTela();
+            return FALSE;
+        }
+        default:
+            return FALSE;
+    }
 }
+
