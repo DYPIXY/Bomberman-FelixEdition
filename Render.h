@@ -207,5 +207,4 @@ void renderResult(bool venceu) {
     SetConsoleTextAttribute(h, COLOR_DEFAULT);
 
     std::cout << "\nvoltando...\n";
-    Sleep(2000);
 }

@@ -165,7 +165,7 @@ void verificarColetaItem()
 }
 
 // loop principal
-void rodarJogo(int mapa[][wMax]) {
+void rodarJogo(int mapa[hMax][wMax]) {
 
     state = GameState();
     state.session = true;
@@ -176,11 +176,9 @@ void rodarJogo(int mapa[][wMax]) {
         for (int j = 0; j < wMax; j++)
             screenBuffer[i][j] = mapa[i][j];
 
-    criarInimigo(1, 7);
-    criarInimigo(15, 5);
-    criarInimigo(3, 3);
-    criarInimigo(20, 10);
-    criarInimigo(9, 6);
+    criarInimigo(mapa, 3);
+    criarInimigo(mapa);
+
 
     spawnarItens();
 
@@ -240,25 +238,18 @@ int main() {
 
     srand(time(0));
 
+    bool executando = true;
 
-    int opcao = renderMenu();
+    while (executando) {
+        int opcao = renderMenu(); // Supondo que seu menu retorne a escolha (1 = Jogar, 2 = Sair)
 
-    switch (opcao) {
-
-        case 1:
-            cout << "Iniciando jogo...\n";
+        if (opcao == 1) {
             limparTela();
-            rodarJogo(map_0);
-            break;
-
-        case 2:
-            cout << "Mostrando creditos...\n";
-            break;
-
-        case 3:
-            cout << "Saindo...\n";
-            break;
+            rodarJogo(map_0); // Quando rodarJogo acabar, o 'while' vai repetir e mostrar o menu de novo!
+        } 
+        else if (opcao == 4) {
+            executando = false; // Fecha o jogo de forma limpa
+        }
     }
-
     return 0;
 }
