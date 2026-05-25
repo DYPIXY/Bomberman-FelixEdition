@@ -5,75 +5,136 @@
 #define TICKS_UNTIL_NEXT_STATE_BOMB 45
 
 
+// conta quantas bombas ainda estao ativas
+int contarBombasAtivas() {
+    int total = 0;
+
+    for (Bomba& bomba : state->bombas) {
+        if (bomba.temBomba || bomba.explodindo)
+            total++;
+    }
+
+    return total;
+}
+
+
 // coloca bomba onde o jogador ta
 void colocarBomba() {
 
-    // apenas uma bomba
-    if (state->bomba.temBomba || state->bomba.explodindo)
+    // respeita o limite de bombas do jogador
+    if (contarBombasAtivas() >= state->limiteBombas)
         return;
 
-    state->bomba.temBomba = true;
-    state->bomba.pos = state->p1.pos;
-    state->bomba.tempoBomba = 0;
+    // nao deixa colocar duas bombas exatamente no mesmo lugar
+    for (Bomba& bomba : state->bombas) {
+        if ((bomba.temBomba || bomba.explodindo) &&
+            bomba.pos.x == state->p1.pos.x &&
+            bomba.pos.y == state->p1.pos.y) {
+            return;
+        }
+    }
 
-    state->screenBuffer[state->bomba.pos.y][state->bomba.pos.x] = BOMBA;
+    Bomba novaBomba;
+
+    novaBomba.temBomba = true;
+    novaBomba.explodindo = false;
+    novaBomba.pos = state->p1.pos;
+    novaBomba.tempoBomba = 0;
+    novaBomba.cooldownBomba = 0;
+
+    state->bombas.push_back(novaBomba);
+
+    state->screenBuffer[novaBomba.pos.y][novaBomba.pos.x] = BOMBA;
     state->hud.bombasUsadas++;
 }
 
 
 // cuida da explosao (criar e apagar)
-void gerenciarExplosao(int tipoTile) {
-    int bx = state->bomba.pos.x;
-    int by = state->bomba.pos.y;
+void gerenciarExplosao(Bomba& bomba, int tipoTile) {
+
+    int bx = bomba.pos.x;
+    int by = bomba.pos.y;
 
     // centro
     if (state->screenBuffer[by][bx] != BLOCO_SOLIDO)
         state->screenBuffer[by][bx] = tipoTile;
 
-    // cima
-    if (by > 0 && state->screenBuffer[by - 1][bx] != BLOCO_SOLIDO)
-        state->screenBuffer[by - 1][bx] = tipoTile;
+    // direcoes da explosao
+    int direcoes[4][2] = {
+        {0, -1}, // cima
+        {0, 1},  // baixo
+        {-1, 0}, // esquerda
+        {1, 0}   // direita
+    };
 
-    // baixo
-    if (by < hMax - 1 && state->screenBuffer[by + 1][bx] != BLOCO_SOLIDO)
-        state->screenBuffer[by + 1][bx] = tipoTile;
+    // percorre todas as direcoes
+    for (int d = 0; d < 4; d++) {
 
-    // esquerda
-    if (bx > 0 && state->screenBuffer[by][bx - 1] != BLOCO_SOLIDO)
-        state->screenBuffer[by][bx - 1] = tipoTile;
+        // usa o alcance da bomba do jogador
+        for (int alcance = 1; alcance <= state->alcanceBomba; alcance++) {
 
-    // direita
-    if (bx < wMax - 1 && state->screenBuffer[by][bx + 1] != BLOCO_SOLIDO)
-        state->screenBuffer[by][bx + 1] = tipoTile;
+            int nx = bx + direcoes[d][0] * alcance;
+            int ny = by + direcoes[d][1] * alcance;
+
+            // evita acessar fora do mapa
+            if (nx < 0 || nx >= wMax || ny < 0 || ny >= hMax)
+                break;
+
+            // parede solida bloqueia explosao
+            if (state->screenBuffer[ny][nx] == BLOCO_SOLIDO)
+                break;
+
+            int tileAntes = state->screenBuffer[ny][nx];
+
+            // desenha explosao ou limpa fogo
+            state->screenBuffer[ny][nx] = tipoTile;
+
+            // parede destrutivel para explosao
+            if (tileAntes == PAREDE_DESTRUTIVEL)
+                break;
+        }
+    }
 }
 
 
-// controla o tempo da bomba
+// controla o tempo das bombas
 void updateBomba() {
 
-    // esperando explodir
-    if (state->bomba.temBomba && !state->bomba.explodindo) {
-        state->bomba.tempoBomba++;
+    for (Bomba& bomba : state->bombas) {
 
-        if (state->bomba.tempoBomba >= TICKS_UNTIL_NEXT_STATE_BOMB) {
-            gerenciarExplosao(BOMBA_EXPLOSAO);
+        // esperando explodir
+        if (bomba.temBomba && !bomba.explodindo) {
 
-            state->bomba.temBomba = false;
-            state->bomba.explodindo = true;
-            state->bomba.cooldownBomba = 0;
+            bomba.tempoBomba++;
+
+            // velocidade da bomba pode ser alterada por item
+            if (bomba.tempoBomba >= state->velocidadeBomba) {
+
+                gerenciarExplosao(bomba, BOMBA_EXPLOSAO);
+
+                bomba.temBomba = false;
+                bomba.explodindo = true;
+                bomba.cooldownBomba = 0;
+            }
+        }
+
+        // explosao ativa
+        if (bomba.explodindo) {
+
+            bomba.cooldownBomba++;
+
+            if (bomba.cooldownBomba > 20) {
+
+                gerenciarExplosao(bomba, WHITE); // limpa fogo
+                bomba.explodindo = false;
+            }
         }
     }
 
-    // explosao ativa
-    if (state->bomba.explodindo) {
-        state->bomba.cooldownBomba++;
-
-        if (state->bomba.cooldownBomba > 20) {
-            gerenciarExplosao(WHITE); // limpa fogo
-            state->bomba.explodindo = false;
+    // remove bombas que ja terminaram completamente
+    for (int i = state->bombas.size() - 1; i >= 0; i--) {
+        if (!state->bombas[i].temBomba && !state->bombas[i].explodindo) {
+            state->bombas.erase(state->bombas.begin() + i);
         }
     }
 }
-
-
-

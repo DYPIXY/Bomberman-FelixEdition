@@ -13,7 +13,7 @@
 #include <ctime>
 
 // CONSTANTES
-#define FRAME_SPEED 0.1 //velocidade de cada frame (em segundos)
+#define FRAME_SPEED 0.05 //velocidade de cada frame (em segundos)
 #define TICKS_UNTIL_NEXT_STATE_BOMB 45
 #define wMax 22
 #define hMax 12
@@ -29,6 +29,14 @@ struct Coordenadas {
 struct Player {
     Coordenadas pos;
     bool alive;
+
+    int vidas = 1;
+    int tempoImune = 0;
+
+    bool escudo = false;
+    bool passaBlocos = false;
+    bool sobreviveBomba = false;
+
     //jogador começa em (1,1) para nao nascer dentro da parede
     Player() { pos = {1, 1}; alive = true; }
 };
@@ -85,16 +93,22 @@ struct HudInfo {
 struct GameState {
     bool session = false;
     Player p1;
-    Bomba bomba;
+
+    std::vector<Bomba> bombas;
     std::vector<Enemy> enemies;
     std::vector<Item> itens;
+
     HudInfo hud;
+
+    int alcanceBomba = 1;
+    int limiteBombas = 1;
+    int velocidadeBomba = TICKS_UNTIL_NEXT_STATE_BOMB;
+
     int screenBuffer[hMax + 2][wMax + 2];
     time_t timestamp;
 };
+
 static struct GameState* state; 
 
 
 bool checkColisao(int target, int posX, int posY, int offX, int offY);
-
-
