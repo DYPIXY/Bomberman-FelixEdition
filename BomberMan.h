@@ -1,9 +1,14 @@
 #pragma once
 
+// =============================================
+// Trabalho M1 - Bomberman
+// Algoritmos e Programação II
+// Desenvolvido por:  Joao Felix, Derick Kunz, Joao Guilherme, Eduardo Loyola
+// =============================================
+
 #include <iostream>
 #include <windows.h>
 #include <vector>
-
 #include "Render.h"
 #include <ctime>
 
@@ -58,22 +63,19 @@ struct GameState {
 
 
 //Variaveis (Acessiveis por outros arquivos)
-class BomberMan : Widget
-{
-private:
-    GameState state;
-    int screenBuffer[hMax + 2][wMax + 2];
 
-    void rodarJogo(int mapa[][wMax + 2]);
-    void inputHandler();
-    void updateBomba();
-    void updateInimigo(Enemy& inimigo);
-    void colocarBomba();
-    void gerenciarExplosao(int tipoTile);
-    bool checkColisao(int target, int posX, int posY, int offX, int offY);
-    void criarInimigo(int x, int y);
+extern GameState state;
+extern int screenBuffer[hMax + 2][wMax + 2];
 
-public: 
-    void Run() override;
-    void RenderDraw() override;
-}
+
+//Prototipos das funções
+
+
+void rodarJogo(int mapa[][wMax + 2]);
+void inputHandler();
+void updateBomba();
+void updateInimigo(Enemy& inimigo);
+void colocarBomba();
+void gerenciarExplosao(int tipoTile);
+bool checkColisao(int target, int posX, int posY, int offX, int offY);
+void criarInimigo(int x, int y);

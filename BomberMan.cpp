@@ -5,9 +5,8 @@
 // Desenvolvido por:  Joao Felix, Derick Kunz, Joao Guilherme, Eduardo Loyola
 // =============================================
 
-#include "includesBomberMan.h"
+#include "BomberMan.h"
 #include "Mapas.h"
-#include "Routes.h"
 
 #include <iostream>
 #include <conio.h>
@@ -19,28 +18,11 @@ GameState state;
 int screenBuffer[hMax + 2][wMax + 2];
 
 
-BomberMan::BomberMan() {
-    state = GameState();
-    state.session = true;
-    state.hud.inicioJogo = time(nullptr);
+// LOGICA DO JOGO
 
-    // copia mapa
-    for (int i = 0; i < hMax + 2; i++)
-        for (int j = 0; j < wMax + 2; j++)
-            screenBuffer[i][j] = mapa[i][j];
-
-    criarInimigo(1, 7);
-    criarInimigo(15, 5);
-    criarInimigo(3, 3);
-    criarInimigo(20, 10);
-    criarInimigo(9, 6);
-
-    bool venceu = false;
-
-}
 
 // verifica se tem o target na posicao dejesada(poderia ser apenas a posicao dejesada mais pode ser util ter a posição atual de quem pediu o check)
-bool BomberMan::checkColisao(int target, int posX, int posY, int offX, int offY) {
+bool checkColisao(int target, int posX, int posY, int offX, int offY) {
     int destX = posX + offX;
     int destY = posY + offY;
 
@@ -53,7 +35,7 @@ bool BomberMan::checkColisao(int target, int posX, int posY, int offX, int offY)
 
 
 // coloca bomba onde o jogador ta
-void BomberMan::colocarBomba() {
+void colocarBomba() {
 
     // apenas uma bomba
     if (state.bomba.temBomba || state.bomba.explodindo)
@@ -69,7 +51,7 @@ void BomberMan::colocarBomba() {
 
 
 // cuida da explosao (criar e apagar)
-void BomberMan::gerenciarExplosao(int tipoTile) {
+void gerenciarExplosao(int tipoTile) {
     int bx = state.bomba.pos.x;
     int by = state.bomba.pos.y;
 
@@ -96,7 +78,7 @@ void BomberMan::gerenciarExplosao(int tipoTile) {
 
 
 // controla o tempo da bomba
-void BomberMan::updateBomba() {
+void updateBomba() {
 
     // esperando explodir
     if (state.bomba.temBomba && !state.bomba.explodindo) {
@@ -124,13 +106,13 @@ void BomberMan::updateBomba() {
 
 
 // cria inimigo
-void BomberMan::criarInimigo(int x, int y) {
+void criarInimigo(int x, int y) {
     state.enemies.push_back(Enemy(x, y));
 }
 
 
 // atualiza inimigo (movimento + morte)
-void BomberMan::updateInimigo(Enemy& inimigo) {
+void updateInimigo(Enemy& inimigo) {
 
     if (!inimigo.inimigoVivo)
         return;
@@ -177,7 +159,7 @@ void BomberMan::updateInimigo(Enemy& inimigo) {
 
 
 // ve se jogador bateu em inimigo
-bool BomberMan::checkColisaoJogadorInimigo() {
+bool checkColisaoJogadorInimigo() {
     for (const Enemy& e : state.enemies) {
         if (e.inimigoVivo &&
             e.pos.x == state.p1.pos.x &&
@@ -190,7 +172,7 @@ bool BomberMan::checkColisaoJogadorInimigo() {
 
 
 // ganhou o jogo?
-bool BomberMan::todosInimigosMortos() {
+bool todosInimigosMortos() {
     for (const Enemy& e : state.enemies) {
         if (e.inimigoVivo)
             return false;
@@ -200,7 +182,7 @@ bool BomberMan::todosInimigosMortos() {
 
 
 // entrada do teclado
-void BomberMan::inputHandler() {
+void inputHandler() {
 
     if (!_kbhit())
         return;
@@ -219,8 +201,8 @@ void BomberMan::inputHandler() {
         case 't': case 'T': state.session = false; break;
     }
 
-    if (dx != 0 || dy != 0) 
-    {
+    if (dx != 0 || dy != 0) {
+
         bool parede1 = checkColisao(BLOCO_SOLIDO, state.p1.pos.x, state.p1.pos.y, dx, dy);
         bool parede2 = checkColisao(PAREDE_DESTRUTIVEL, state.p1.pos.x, state.p1.pos.y, dx, dy);
 
@@ -234,7 +216,7 @@ void BomberMan::inputHandler() {
 
 
 // tela de fim
-void BomberMan::exibirResultado(bool venceu) {
+void exibirResultado(bool venceu) {
 
     limparTela();
 
@@ -256,37 +238,117 @@ void BomberMan::exibirResultado(bool venceu) {
 
 
 // loop principal
-void BomberMan::Run(int mapa[][wMax + 2]) {
-    inputHandler();
-    updateBomba();
+void rodarJogo(int mapa[][wMax + 2]) {
 
-    for (Enemy& e : state.enemies)
-        updateInimigo(e);
+    state = GameState();
+    state.session = true;
+    state.hud.inicioJogo = time(nullptr);
 
-    // morreu na explosao
-    if (screenBuffer[state.p1.pos.y][state.p1.pos.x] == BOMBA_EXPLOSAO)
-        state.p1.alive = false;
+    // copia mapa
+    for (int i = 0; i < hMax + 2; i++)
+        for (int j = 0; j < wMax + 2; j++)
+            screenBuffer[i][j] = mapa[i][j];
 
-    // morreu no inimigo
-    if (checkColisaoJogadorInimigo())
-        state.p1.alive = false;
+    criarInimigo(1, 7);
+    criarInimigo(15, 5);
+    criarInimigo(3, 3);
+    criarInimigo(20, 10);
+    criarInimigo(9, 6);
 
-    std::vector<std::pair<int,int>> vivos;
+    bool venceu = false;
 
-    for (const Enemy& e : state.enemies) {
-        if (e.inimigoVivo)
-            vivos.push_back({e.pos.x, e.pos.y});
+    while (state.session) {
+
+        inputHandler();
+        updateBomba();
+
+        for (Enemy& e : state.enemies)
+            updateInimigo(e);
+
+        // morreu na explosao
+        if (screenBuffer[state.p1.pos.y][state.p1.pos.x] == BOMBA_EXPLOSAO)
+            state.p1.alive = false;
+
+        // morreu no inimigo
+        if (checkColisaoJogadorInimigo())
+            state.p1.alive = false;
+
+        std::vector<std::pair<int,int>> vivos;
+
+        for (const Enemy& e : state.enemies) {
+            if (e.inimigoVivo)
+                vivos.push_back({e.pos.x, e.pos.y});
+        }
+
+        renderDraw(state.p1.pos.x, state.p1.pos.y, state.p1.alive, vivos, state.hud);
+
+        if (!state.p1.alive) {
+            venceu = false;
+            state.session = false;
+        }
+        else if (todosInimigosMortos()) {
+            venceu = true;
+            state.session = false;
+        }
+
+        Sleep(16);
     }
 
-    renderDraw(state.p1.pos.x, state.p1.pos.y, state.p1.alive, vivos, state.hud);
-
-    if (!state.p1.alive) {
-        venceu = false;
-        state.session = false;
-    }
-    else if (todosInimigosMortos()) {
-        currentWidget::
-        Routes::setRoute(Routes::GAME_INFO);
-        state.session = false;
-    }
+    exibirResultado(venceu);
 }
+
+
+// menu
+int exibirMenu() {
+
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    limparTela();
+    SetConsoleTextAttribute(h, COLOR_BOMB);
+    std::cout << "======================\n";
+    std::cout << "\nBOMBERMAN\n";
+    std::cout << "\n======================\n\n";
+    SetConsoleTextAttribute(h, COLOR_DEFAULT);
+    std::cout << "WASD = mover\n";
+    std::cout << "E = bomba\n";
+    std::cout << "T = sair\n\n";
+
+    std::cout << "1 jogar\n";
+    std::cout << "0 sair\n\n";
+
+    int op;
+    std::cin >> op;
+
+    return op;
+}
+
+
+// main
+int main() {
+
+    // esconde cursor 
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_CURSOR_INFO c;
+    GetConsoleCursorInfo(h, &c);
+    c.bVisible = false;
+    SetConsoleCursorInfo(h, &c);
+
+    srand(time(0));
+
+    int op = -1;
+
+    while (op != 0) {
+        op = exibirMenu();
+
+        if (op == 1)
+        {
+            limparTela();
+            rodarJogo(map_0);
+        }
+    }
+
+    limparTela();
+    std::cout << "\n Fechando...\n";
+
+    return 0;
+}   
