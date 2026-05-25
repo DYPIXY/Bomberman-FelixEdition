@@ -60,8 +60,7 @@ void criarInimigo(int mapa[hMax][wMax]) {
             if (mapa[i][j] == 99) {
                 criarInimigo(j, i); // Chama a função original (x=j, y=i)
                 
-                // Opcional: Limpa o '99' do mapa e coloca chão (0) 
-                // para o inimigo não nascer "dentro" de um bloco sólido
+                //  Limpa o '99' do mapa e coloca chão (0) 
                 mapa[i][j] = 0; 
             }
         }
