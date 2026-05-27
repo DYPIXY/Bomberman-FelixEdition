@@ -57,6 +57,7 @@ inline SpriteInfo getSprite(int value) {
 
         case BOMBA_EXPLOSAO:
             return { (char)178, COLOR_EXPLOSION };
+
         default:
             return { ' ', COLOR_DEFAULT };
     }
@@ -97,14 +98,24 @@ void renderDraw()
             bool temInimigo = false;
 
             for (const auto& pos : state->enemies) {
-                if (i == pos.pos.y && j == pos.pos.x) {
+                if (pos.inimigoVivo && i == pos.pos.y && j == pos.pos.x) {
                     temInimigo = true;
                     break;
                 }
             }
 
+            // verifica se tem item aqui
+            Item* itemAtual = nullptr;
+
+            for (Item& item : state->itens) {
+                if (item.ativo && item.pos.x == j && item.pos.y == i) {
+                    itemAtual = &item;
+                    break;
+                }
+            }
+
             // ordem de prioridade:
-            // jogador > inimigo > mapa
+            // jogador > inimigo > item > mapa
             if (state->p1.alive && i == state->p1.pos.y && j == state->p1.pos.x) 
             {
                 SetConsoleTextAttribute(hConsole, COLOR_PLAYER);
@@ -114,6 +125,11 @@ void renderDraw()
             {
                 SetConsoleTextAttribute(hConsole, COLOR_ENEMY);
                 std::cout << 'E';
+            }
+            else if (itemAtual != nullptr)
+            {
+                SetConsoleTextAttribute(hConsole, COLOR_BOMB);
+                std::cout << itemAtual->simbolo;
             }
             else 
             {
@@ -153,7 +169,7 @@ void renderDraw()
     std::cout << "| Bombas +" << state->hud.itemBombas << " \n";
     std::cout << "| Vida +" << state->hud.itemVidaExtra << " \n";
     std::cout << "| Relogio " << state->hud.itemBombaRelogio << " \n";
-    std::cout << "| Escudo " << state->hud.itemSobreviveBomba << " \n";
+    std::cout << "| Escudo " << state->hud.itemEscudo << " \n";
     std::cout << "| Passa Blocos " << state->hud.itemPassaBlocos << " \n";
 
     std::cout << "+----------------------+\n";
@@ -182,5 +198,12 @@ void renderResult(bool venceu) {
 
     SetConsoleTextAttribute(h, COLOR_DEFAULT);
 
-    std::cout << "\nvoltando...\n";
+    std::cout << "\nPontuacao final: " << state->hud.pontuacao << "\n";
+    std::cout << "Movimentos: " << state->hud.movimentos << "\n";
+    std::cout << "Bombas usadas: " << state->hud.bombasUsadas << "\n";
+    std::cout << "Itens pegos: " << state->hud.itensPegos << "\n";
+
+    std::cout << "\nPressione qualquer tecla para voltar ao menu...\n";
+
+    system("pause > nul");
 }

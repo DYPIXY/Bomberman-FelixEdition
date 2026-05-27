@@ -8,6 +8,7 @@
 #include "Mapas.h"
 #include "Inimigo.h"
 #include "Bomba.h"
+#include "Item.h"
 #include "Menu.h"
 
 #include <signal.h>
@@ -15,6 +16,8 @@
 #include <conio.h>
 #include <cstdlib>
 #include <ctime>
+#include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
 
 
 // verifica se tem o target na posicao dejesada(poderia ser apenas a posicao dejesada mais pode ser util ter a posição atual de quem pediu o check)
@@ -68,95 +71,18 @@ void inputHandler() {
         bool parede1 = checkColisao(BLOCO_SOLIDO, state->p1.pos.x, state->p1.pos.y, dx, dy);
         bool parede2 = checkColisao(PAREDE_DESTRUTIVEL, state->p1.pos.x, state->p1.pos.y, dx, dy);
 
-        if (!parede1 && !parede2) {
+        // se o jogador tiver o item passa blocos, ele pode passar pela parede destrutivel
+        if (!parede1 && (!parede2 || state->p1.passaBlocos)) {
             state->p1.pos.x += dx;
             state->p1.pos.y += dy;
             state->hud.movimentos++;
+
+            if (state->hud.pontuacao > 0)
+                state->hud.pontuacao--;
         }
     }
 }
 
-char sortearTipoItem()
-{
-    char tipos[] = {'F', 'B', 'V', 'R', 'E', 'P'};
-    return tipos[rand() % 6];
-}
-
-void spawnarItens()
-{
-    int quantidade = (rand() % 6) + 2; // 2 até 7 itens
-
-    for (int i = 0; i < quantidade; i++)
-    {
-        int x, y;
-
-        do {
-            x = rand() % wMax;
-            y = rand() % hMax;
-
-        } while (
-            state->screenBuffer[y][x] != WHITE ||
-            (x == state->p1.pos.x && y == state->p1.pos.y)
-        );
-
-        char simbolo = sortearTipoItem();
-
-        state->itens.push_back(Item(x, y, simbolo));
-    }
-}
-
-void renderizarItens()
-{
-    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    for (Item& item : state->itens)
-    {
-        if (!item.ativo)
-            continue;
-
-        COORD coord;
-        coord.X = item.pos.x;
-        coord.Y = item.pos.y;
-        SetConsoleCursorPosition(h, coord);
-
-        SetConsoleTextAttribute(h, COLOR_BOMB);
-        std::cout << item.simbolo;
-    }
-
-    SetConsoleTextAttribute(h, COLOR_DEFAULT);
-}
-
-void verificarColetaItem()
-{
-    for (Item& item : state->itens)
-    {
-        if (!item.ativo)
-            continue;
-
-        if (item.pos.x == state->p1.pos.x && item.pos.y == state->p1.pos.y)
-        {
-            item.ativo = false;
-
-            if (item.simbolo == 'F')
-                state->hud.itemFogo++;
-
-            else if (item.simbolo == 'B')
-                state->hud.itemBombas++;
-
-            else if (item.simbolo == 'V')
-                state->hud.itemVidaExtra++;
-
-            else if (item.simbolo == 'R')
-                state->hud.itemBombaRelogio++;
-
-            else if (item.simbolo == 'E')
-                state->hud.itemEscudo++;
-
-            else if (item.simbolo == 'P')
-                state->hud.itemPassaBlocos++;
-        }
-    }
-}
 
 static const char* savePath = "saves/savegame.dk";
 void saveGame() 
@@ -196,10 +122,10 @@ void rodarJogo(int mapa[][wMax], int diff)
     criarInimigo(mapa, 3);
     criarInimigo(mapa);
 
-
     spawnarItens();
 
     bool venceu = false;
+    bool bonusVitoriaAplicado = false;
 
     struct timespec req = {};
     while (state->session) 
@@ -210,16 +136,67 @@ void rodarJogo(int mapa[][wMax], int diff)
         verificarColetaItem();
         updateBomba();
 
-        for (Enemy& e : state->enemies)
+        // controla tempo de imunidade apos perder vida ou escudo
+        if (state->p1.tempoImune > 0)
+            state->p1.tempoImune--;
+
+        for (Enemy& e : state->enemies) {
+            bool estavaVivo = e.inimigoVivo;
+
             updateInimigo(e);
 
+            if (estavaVivo && !e.inimigoVivo) {
+                state->hud.pontuacao += 50;
+            }
+        }
+
         // morreu na explosao
-        if (state->screenBuffer[state->p1.pos.y][state->p1.pos.x] == BOMBA_EXPLOSAO)
-            state->p1.alive = false;
+        if (state->p1.tempoImune == 0 &&
+            state->screenBuffer[state->p1.pos.y][state->p1.pos.x] == BOMBA_EXPLOSAO) {
+
+            if (state->p1.escudo) {
+                state->p1.escudo = false;
+
+                if (state->hud.itemEscudo > 0)
+                    state->hud.itemEscudo--;
+
+                state->p1.tempoImune = 20;
+            }
+            else if (state->p1.vidas > 1) {
+                state->p1.vidas--;
+
+                if (state->hud.itemVidaExtra > 0)
+                    state->hud.itemVidaExtra--;
+
+                state->p1.tempoImune = 20;
+            }
+            else {
+                state->p1.alive = false;
+            }
+        }
 
         // morreu no inimigo
-        if (checkColisaoJogadorInimigo())
-            state->p1.alive = false;
+        if (state->p1.tempoImune == 0 && checkColisaoJogadorInimigo()) {
+            if (state->p1.escudo) {
+                state->p1.escudo = false;
+
+                if (state->hud.itemEscudo > 0)
+                    state->hud.itemEscudo--;
+
+                state->p1.tempoImune = 20;
+            }
+            else if (state->p1.vidas > 1) {
+                state->p1.vidas--;
+
+                if (state->hud.itemVidaExtra > 0)
+                    state->hud.itemVidaExtra--;
+
+                state->p1.tempoImune = 20;
+            }
+            else {
+                state->p1.alive = false;
+            }
+        }
 
         std::vector<std::pair<int,int>> vivos;
 
@@ -229,13 +206,17 @@ void rodarJogo(int mapa[][wMax], int diff)
         }
 
         renderDraw();
-        renderizarItens();
 
         if (!state->p1.alive) {
             venceu = false;
             state->session = false;
         }
         else if (todosInimigosMortos()) {
+            if (!bonusVitoriaAplicado) {
+                state->hud.pontuacao += 200;
+                bonusVitoriaAplicado = true;
+            }
+
             venceu = true;
             state->session = false;
         }
@@ -265,6 +246,9 @@ int main()
 
     srand(time(0));
 
+    // toca a música em loop
+    PlaySound(TEXT("musica.wav"), NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
+
     bool executando = true;
 
     while (executando) {
@@ -278,6 +262,9 @@ int main()
             executando = false; // Fecha o jogo de forma limpa
         }
     }
+    
+    PlaySound(NULL, NULL, 0);
+
     return 0;
 }   
 
@@ -302,4 +289,3 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType)
             return FALSE;
     }
 }
-
