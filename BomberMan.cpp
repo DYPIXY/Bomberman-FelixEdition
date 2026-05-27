@@ -16,6 +16,8 @@
 #include <conio.h>
 #include <cstdlib>
 #include <ctime>
+#include <mmsystem.h>
+#pragma comment(lib, "winmm.lib")
 
 
 // verifica se tem o target na posicao dejesada(poderia ser apenas a posicao dejesada mais pode ser util ter a posição atual de quem pediu o check)
@@ -268,6 +270,9 @@ int main()
 
     srand(time(0));
 
+    // toca a música em loop
+    PlaySound(TEXT("musica.wav"), NULL, SND_FILENAME | SND_ASYNC | SND_LOOP);
+
     bool executando = true;
 
     while (executando) {
@@ -281,6 +286,9 @@ int main()
             executando = false; // Fecha o jogo de forma limpa
         }
     }
+    
+    PlaySound(NULL, NULL, 0);
+
     return 0;
 }   
 
